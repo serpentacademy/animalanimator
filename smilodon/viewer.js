@@ -22,9 +22,9 @@ class SmilodonViewer extends HTMLElement {
         .divider{flex:1}.label{color:#98a5b1;font-size:12px}.timeline{width:100%;accent-color:#c5a574;cursor:pointer}.credits{padding:0 24px 16px;color:#6e7c88;font-size:11px;background:#11171e}.error{color:#ffc19d}
         @media(max-width:560px){.heading{left:20px;top:20px}.tools{padding:14px;gap:7px}button,select{padding:8px 10px;font-size:12px}.credits{padding-left:14px}.divider{display:none}.status{left:20px}}
       </style>
-      <div class="stage"><div class="heading"><div class="eyebrow">Pleistocene • Motion study</div><h2>Smilodon</h2><p>Strength in every step.</p></div><div class="status" role="status" aria-live="polite">Loading the specimen…</div></div>
+      <div class="stage"><div class="heading"><div class="eyebrow">Pleistocene • Motion study</div><h2>Smilodon</h2><p>Weight. Contact. Intent.</p></div><div class="status" role="status" aria-live="polite">Loading the specimen…</div></div>
       <div class="tools" aria-label="Animation controls">
-        <button data-clip="Walk" disabled aria-pressed="true">Walk</button><button data-clip="Run" disabled aria-pressed="false">Run</button><button data-clip="Attack" disabled aria-pressed="false">Attack</button>
+        <button data-clip="Idle" disabled aria-pressed="false">Idle</button><button data-clip="Walk" disabled aria-pressed="true">Walk</button><button data-clip="Run" disabled aria-pressed="false">Run</button><button data-clip="Bite" disabled aria-pressed="false">Bite</button>
         <span class="divider"></span><button id="pause" disabled>Pause</button><label class="label">Speed <select id="speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option></select></label><button id="skull" aria-pressed="true">Skull</button><button id="reset">Reset view</button>
         <input class="timeline" id="timeline" type="range" min="0" max="1000" value="0" aria-label="Animation position">
       </div><div class="credits">Drag to orbit · Scroll to zoom · Research-informed artistic reconstruction</div>`;
@@ -80,19 +80,19 @@ class SmilodonViewer extends HTMLElement {
     model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
     const mixer=new THREE.AnimationMixer(model);this.mixer=mixer;
     const clips=new Map(gltf.animations.map(c=>[c.name,c]));
-    for(const name of ['Walk','Run','Attack'])if(!clips.has(name))throw new Error(`Missing ${name} animation`);
+    for(const name of ['Idle','Walk','Run','Bite'])if(!clips.has(name))throw new Error(`Missing ${name} animation`);
     const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
     let paused=reduced,active,name='Walk',speed=1,visible=true;
     const play = n => {
       const next=mixer.clipAction(clips.get(n));
-      if(active && active!==next)active.fadeOut(.18);
+      if(active && active!==next)active.fadeOut(.10);
       next.reset().setEffectiveWeight(1).setEffectiveTimeScale(1);
-      next.setLoop(n==='Attack'?THREE.LoopOnce:THREE.LoopRepeat,Infinity);next.clampWhenFinished=n==='Attack';
-      next.fadeIn(.18).play();active=next;name=n;
+      next.setLoop(n==='Bite'?THREE.LoopOnce:THREE.LoopRepeat,Infinity);next.clampWhenFinished=n==='Bite';
+      next.fadeIn(.10).play();active=next;name=n;
       this.shadowRoot.querySelectorAll('[data-clip]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.clip===n)));
-      $('.status').textContent=n==='Attack'?'Crouch → grapple → neck press → recover':`${n} cycle · Drag to explore`;
+      $('.status').textContent=n==='Bite'?'Brace → open → bite → recover':n==='Run'?'Fast gallop · 2 strides / second':`${n} cycle · Drag to explore`;
     };
-    play('Walk');
+    play('Run');
     const on=(node,type,fn)=>node.addEventListener(type,fn,{signal:this.abort.signal});
     this.shadowRoot.querySelectorAll('[data-clip]').forEach(b=>{b.disabled=false;on(b,'click',()=>play(b.dataset.clip));});
     $('#pause').disabled=false;$('#pause').textContent=paused?'Play':'Pause';

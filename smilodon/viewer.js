@@ -1,9 +1,9 @@
 // Smilodon viewer. ES module; serves multiple instances with isolated styles.
-const CDN = 'https://esm.sh/three@0.180.0';
+const CDN = new URL('./vendor/',import.meta.url).href;
 const dependencies = Promise.all([
-  import(CDN),
-  import(`${CDN}/examples/jsm/loaders/GLTFLoader.js`),
-  import(`${CDN}/examples/jsm/controls/OrbitControls.js`),
+  import(`${CDN}three.module.js`),
+  import(`${CDN}GLTFLoader.js`),
+  import(`${CDN}OrbitControls.js`),
 ]);
 
 class SmilodonViewer extends HTMLElement {
@@ -57,7 +57,7 @@ class SmilodonViewer extends HTMLElement {
     const controls = new OrbitControls(camera, renderer.domElement); this.controls = controls;
     controls.enableDamping = true; controls.minDistance = 1.1; controls.maxDistance = 3.6;
     controls.maxPolarAngle = Math.PI * .49; controls.enablePan = false;
-    const reset = () => { camera.position.set(1.13,.76,1.82); controls.target.set(0,.32,0); controls.update(); };
+    const reset = () => { camera.position.set(...(stage.clientWidth<600?[2.45,.82,1.85]:[1.13,.76,1.82])); controls.target.set(0,.32,0); controls.update(); };
     reset();
     scene.add(new THREE.HemisphereLight(0xc5d9eb,0x242329,1.7));
     const key = new THREE.DirectionalLight(0xffdfb1,3.1); key.position.set(1,2,2); key.castShadow = true;
@@ -71,7 +71,7 @@ class SmilodonViewer extends HTMLElement {
     for(let i=0;i<90;i++){points[i*3]=(Math.random()-.5)*2.8;points[i*3+1]=Math.random()*1.5;points[i*3+2]=(Math.random()-.5)*1.6;}
     const dustGeo=new THREE.BufferGeometry();dustGeo.setAttribute('position',new THREE.BufferAttribute(points,3));
     const dust=new THREE.Points(dustGeo,new THREE.PointsMaterial({color:0xd9bb84,size:.0025,transparent:true,opacity:.3,depthWrite:false}));scene.add(dust);
-    const resize=()=>{const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();};
+    const resize=()=>{const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();if(!this.didInitialResize){reset();this.didInitialResize=true;}};
     this.resizeObserver=new ResizeObserver(resize);this.resizeObserver.observe(stage);resize();
     const src=this.getAttribute('src') || new URL('./smilodon.glb',import.meta.url).href;
     const gltf=await new GLTFLoader().loadAsync(src, event=>{if(event.total)$('.status').textContent=`Loading specimen · ${Math.round(event.loaded/event.total*100)}%`;});
@@ -84,11 +84,12 @@ class SmilodonViewer extends HTMLElement {
     const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
     let paused=reduced,active,name='Walk',speed=1,visible=true;
     const play = n => {
+      if(paused)mixer.stopAllAction();
       const next=mixer.clipAction(clips.get(n));
       if(active && active!==next)active.fadeOut(.10);
       next.reset().setEffectiveWeight(1).setEffectiveTimeScale(1);
       next.setLoop(n==='Bite'?THREE.LoopOnce:THREE.LoopRepeat,Infinity);next.clampWhenFinished=n==='Bite';
-      next.fadeIn(.10).play();active=next;name=n;
+      next.play();if(paused)next.stopFading().setEffectiveWeight(1);else next.fadeIn(.10);mixer.update(0);active=next;name=n;
       this.shadowRoot.querySelectorAll('[data-clip]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.clip===n)));
       $('.status').textContent=n==='Bite'?'Brace → open → bite → recover':n==='Run'?'Fast gallop · 2 strides / second':`${n} cycle · Drag to explore`;
     };
@@ -98,7 +99,7 @@ class SmilodonViewer extends HTMLElement {
     $('#pause').disabled=false;$('#pause').textContent=paused?'Play':'Pause';
     on($('#pause'),'click',()=>{paused=!paused;$('#pause').textContent=paused?'Play':'Pause';});
     on($('#speed'),'change',e=>speed=Number(e.target.value));
-    on($('#timeline'),'input',e=>{paused=true;$('#pause').textContent='Play';active.paused=false;active.time=Number(e.target.value)/1000*clips.get(name).duration;mixer.update(0);});
+    on($('#timeline'),'input',e=>{paused=true;$('#pause').textContent='Play';mixer.stopAllAction();active.reset().play().stopFading().setEffectiveWeight(1);active.paused=false;active.time=Number(e.target.value)/1000*clips.get(name).duration;mixer.update(0);});
     on($('#skull'),'click',()=>{const show=$('#skull').getAttribute('aria-pressed')!=='true';model.traverse(o=>{if(o.isMesh&&o.name.includes('Smilodon_Skull'))o.visible=show;});$('#skull').setAttribute('aria-pressed',String(show));});
     on($('#reset'),'click',reset);
     on(document,'visibilitychange',()=>visible=!document.hidden);
